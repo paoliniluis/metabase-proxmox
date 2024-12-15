@@ -1,54 +1,75 @@
 #!/usr/bin/env bash
-
-# Copyright (c) 2021-2024 tteck
-# Author: Luis Paolini (paoliniluis)
+source <(curl -s https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func)
+# Copyright (c) 2024-forever paoliniluis
+# Author: paoliniluis (paoliniluis)
 # License: MIT
 # https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 
-source /dev/stdin <<< "$FUNCTIONS_FILE_PATH"
+echo -e "Loading..."
+APP="Metabase"
+var_disk="2"
+var_cpu="1"
+var_ram="2048"
+var_os="debian"
+var_version="12"
+variables
 color
-verb_ip6
 catch_errors
-setting_up_container
-network_check
-update_os
 
-msg_info "Installing Dependencies"
-$STD apt-get install -y \
-  curl \
-  sudo \
-  mc
-$STD wget https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.deb && sudo dpkg -i jdk-21_linux-x64_bin.deb
+function default_settings() {
+  CT_TYPE="1"
+  PW=""
+  CT_ID=$NEXTID
+  HN=$NSAPP
+  DISK_SIZE="$var_disk"
+  CORE_COUNT="$var_cpu"
+  RAM_SIZE="$var_ram"
+  BRG="vmbr0"
+  NET="dhcp"
+  GATE=""
+  APT_CACHER=""
+  APT_CACHER_IP=""
+  DISABLEIP6="no"
+  MTU=""
+  SD=""
+  NS=""
+  MAC=""
+  VLAN=""
+  SSH="no"
+  VERB="no"
+  echo_default
+}
 
-msg_ok "Installed Dependencies"
+echo "Installing Dependencies"
+apt-get update && apt-get install -y \
+ curl \
+ sudo \
+ mc
+wget https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.deb && sudo dpkg -i jdk-21_linux-x64_bin.deb
 
-msg_info "Installing Metabase"
-$STD mkdir /home/metabase && wget -q https://downloads.metabase.com/latest/metabase.jar
-msg_ok "Downloaded Metabase"
+echo "Installed Dependencies"
 
-msg_info "Setting up Metabase"
-$STD sudo groupadd -r metabase \
-sudo useradd -r -s /bin/false -g metabase metabase \
-sudo chown -R metabase:metabase /home/metabase.jar \
-sudo touch /var/log/metabase.log \
-sudo chown syslog:adm /var/log/metabase.log \
-sudo touch /etc/default/metabase \
-sudo chmod 640 /etc/default/metabase
+echo "Installing Metabase"
+mkdir /home/metabase && wget https://downloads.metabase.com/latest/metabase.jar -O /home/metabase/metabase.jar
+echo "Downloaded Metabase"
 
-$STD cat <<EOF > /etc/systemd/system/metabase.service
+echo "Setting up Metabase"
+sudo groupadd -r metabase && sudo useradd -r -s /bin/false -g metabase metabase
+sudo chown -R metabase:metabase /home/metabase/ && sudo touch /var/log/metabase.log && sudo chown metabase:metabase /var/log/metabase.log && sudo touch /etc/default/metabase && sudo chmod 640 /etc/default/metabase
+
+cat <<EOF > /etc/systemd/system/metabase.service
 [Unit]
 Description=Metabase server
-After=syslog.target
 After=network.target
 
 [Service]
-WorkingDirectory=</your/path/to/metabase/directory/>
-ExecStart=/usr/bin/java --add-opens java.base/java.nio=ALL-UNNAMED -jar </your/path/to/metabase/directory/>metabase.jar
+WorkingDirectory=/home/metabase/
+ExecStart=/usr/bin/java --add-opens java.base/java.nio=ALL-UNNAMED -jar /home/metabase/metabase.jar
 EnvironmentFile=/etc/default/metabase
 User=metabase
 Type=simple
-StandardOutput=syslog
-StandardError=syslog
+StandardOutput=/var/log/metabase.log
+StandardError=/var/log/metabase.log
 SyslogIdentifier=metabase
 SuccessExitStatus=143
 TimeoutStopSec=120
@@ -58,23 +79,17 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
-$STD sudo touch /etc/rsyslog.d/metabase.conf
-$STD cat <<EOF > /etc/rsyslog.d/metabase.conf
-if $programname == 'metabase' then /var/log/metabase.log
-& stop
-EOF
-
-msg_info "Setting up PostgreSQL"
-$STD apt-get install -y postgresql
+echo "Setting up PostgreSQL"
+apt-get install -y postgresql
 MB_DB_DBNAME=metabase
 MB_DB_USER=metabase
-MB_DB_PASS=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | cut -c1-13)
-$STD sudo -u postgres psql -c "CREATE ROLE $DB_USER WITH LOGIN PASSWORD '$DB_PASS';"
-$STD sudo -u postgres psql -c "CREATE DATABASE $DB_NAME WITH OWNER $DB_USER"
-$STD sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER"
-msg_ok "Set up PostgreSQL"
+MB_DB_PASS=metabase
+sudo -u postgres psql -c "CREATE ROLE $MB_DB_USER WITH LOGIN PASSWORD '$MB_DB_PASS';"
+sudo -u postgres psql -c "CREATE DATABASE $MB_DB_DBNAME WITH OWNER $MB_DB_USER"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $MB_DB_DBNAME TO $MB_DB_USER"
+echo "Set up PostgreSQL"
 
-$STD cat <<EOF > /etc/default/metabase
+cat <<EOF > /etc/default/metabase
 MB_DB_TYPE=postgres
 MB_DB_DBNAME=$MB_DB_DBNAME
 MB_DB_PORT=5432
@@ -84,16 +99,15 @@ MB_DB_HOST=localhost
 MB_EMOJI_IN_LOGS=false
 EOF
 
-msg_info "Starting Services"
-$STD sudo systemctl restart rsyslog.service \
-sudo systemctl daemon-reload
-sudo systemctl start metabase.service
-msg_ok "Started Services"
+echo "Starting Services"
+sudo systemctl daemon-reload && sudo systemctl start metabase.service
+echo "Started Services"
 
-motd_ssh
-customize
+echo "Cleaning up"
+apt-get -y autoremove
+apt-get -y autoclean
+echo "Cleaned"
 
-msg_info "Cleaning up"
-$STD apt-get -y autoremove
-$STD apt-get -y autoclean
-msg_ok "Cleaned"
+msg_ok "Completed Successfully!\n"
+echo -e "${APP} should be reachable by going to the following URL.
+         ${BL}http://${IP}:3000${CL} \n"
