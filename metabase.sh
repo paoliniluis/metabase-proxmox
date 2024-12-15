@@ -5,6 +5,34 @@ source <(curl -s https://raw.githubusercontent.com/community-scripts/ProxmoxVE/m
 # License: MIT
 # https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 
+function header_info {
+clear
+cat <<"EOF"
+                                                                                                    
+                                                 ...                                                
+                                                .....                                               
+                                                 ..                                                 
+                                                                                                    
+                                    =++=  ....  ....  ....  .+++:                                   
+                                   .++++  ....  ..... ..... :+++=                                   
+                                                              .                                     
+                                    .==.  .-=.   ...   -=:   :=-                                    
+                                   .++++  ++++. ..... =+++- :+++=                                   
+                                    .+=.  .++:   ...   =+-   -+=                                    
+                                     ..          ..           .                                     
+                                   .++++  ....  =+++: ....  :+++=                                   
+                                    =++=  ....  -+++. ....  .+++:                                   
+                                                                                                    
+                                    =++=  ....  ....   ...  .+++:                                   
+                                   .++++  ....  ..... ..... :+++=                                   
+                                     ..                      ...                                    
+                                                 ..                                                 
+                                                .....                                               
+                                                 ...                                                
+                                                                                                    
+EOF
+}
+
 echo -e "Loading..."
 APP="Metabase"
 var_disk="2"
