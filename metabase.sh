@@ -5,39 +5,11 @@ source <(curl -s https://raw.githubusercontent.com/community-scripts/ProxmoxVE/m
 # License: MIT
 # https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 
-function header_info {
-clear
-cat <<"EOF"
-                                                                                                    
-                                                 ...                                                
-                                                .....                                               
-                                                 ..                                                 
-                                                                                                    
-                                    =++=  ....  ....  ....  .+++:                                   
-                                   .++++  ....  ..... ..... :+++=                                   
-                                                              .                                     
-                                    .==.  .-=.   ...   -=:   :=-                                    
-                                   .++++  ++++. ..... =+++- :+++=                                   
-                                    .+=.  .++:   ...   =+-   -+=                                    
-                                     ..          ..           .                                     
-                                   .++++  ....  =+++: ....  :+++=                                   
-                                    =++=  ....  -+++. ....  .+++:                                   
-                                                                                                    
-                                    =++=  ....  ....   ...  .+++:                                   
-                                   .++++  ....  ..... ..... :+++=                                   
-                                     ..                      ...                                    
-                                                 ..                                                 
-                                                .....                                               
-                                                 ...                                                
-                                                                                                    
-EOF
-}
-header_info
 echo -e "Loading..."
 APP="Metabase"
 var_disk="2"
 var_cpu="1"
-var_ram="2048"
+var_ram="1024"
 var_os="debian"
 var_version="12"
 variables
@@ -66,7 +38,13 @@ function default_settings() {
   SSH="no"
   VERB="no"
   echo_default
+}
 
+function update_script() {
+  check_container_storage
+  check_container_resources
+  if [[ ! -d /home/metabase/ ]]; then 
+  msg_error "No ${APP} Installation Found!"
   msg_info "Installing Dependencies"
   apt-get update && apt-get install -y curl sudo mc
   wget https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.deb && sudo dpkg -i jdk-21_linux-x64_bin.deb
@@ -126,13 +104,9 @@ EOF
   msg_info "Cleaning up"
   apt-get -y autoremove
   apt-get -y autoclean
-  msg_ok "Cleaned"
-}
-
-function update_script() {
-  check_container_storage
-  check_container_resources
-  if [[ ! -d /home/metabase/ ]]; then msg_error "No ${APP} Installation Found!"; exit; fi
+  msg_ok "Cleaned"; 
+  exit
+  else
   msg_info "Updating ${APP}"
   msg_info "Stopping ${APP}"
   systemctl stop metabase
@@ -141,6 +115,7 @@ function update_script() {
   rm /home/metabase/metabase.jar
   wget -O https://downloads.metabase.com/latest/metabase.jar -O /home/metabase/metabase.jar
   exit
+  fi
 }
 
 start
