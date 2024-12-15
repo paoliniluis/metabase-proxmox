@@ -38,75 +38,86 @@ function default_settings() {
   SSH="no"
   VERB="no"
   echo_default
-}
 
-echo "Installing Dependencies"
-apt-get update && apt-get install -y \
- curl \
- sudo \
- mc
-wget https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.deb && sudo dpkg -i jdk-21_linux-x64_bin.deb
+  msg_info "Installing Dependencies"
+  apt-get update && apt-get install -y curl sudo mc
+  wget https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.deb && sudo dpkg -i jdk-21_linux-x64_bin.deb
+  msg_ok "Installed Dependencies"
 
-echo "Installed Dependencies"
+  msg_info "Installing Metabase"
+  mkdir /home/metabase && wget https://downloads.metabase.com/latest/metabase.jar -O /home/metabase/metabase.jar
+  msg_ok "Downloaded Metabase"
 
-echo "Installing Metabase"
-mkdir /home/metabase && wget https://downloads.metabase.com/latest/metabase.jar -O /home/metabase/metabase.jar
-echo "Downloaded Metabase"
-
-echo "Setting up Metabase"
-sudo groupadd -r metabase && sudo useradd -r -s /bin/false -g metabase metabase
-sudo chown -R metabase:metabase /home/metabase/ && sudo touch /var/log/metabase.log && sudo chown metabase:metabase /var/log/metabase.log && sudo touch /etc/default/metabase && sudo chmod 640 /etc/default/metabase
+  msg_info "Setting up Metabase"
+  sudo groupadd -r metabase && sudo useradd -r -s /bin/false -g metabase metabase
+  sudo chown -R metabase:metabase /home/metabase/ && sudo touch /etc/default/metabase && sudo chmod 640 /etc/default/metabase
 
 cat <<EOF > /etc/systemd/system/metabase.service
-[Unit]
-Description=Metabase server
-After=network.target
+  [Unit]
+  Description=Metabase server
+  After=network.target
 
-[Service]
-WorkingDirectory=/home/metabase/
-ExecStart=/usr/bin/java --add-opens java.base/java.nio=ALL-UNNAMED -jar /home/metabase/metabase.jar
-EnvironmentFile=/etc/default/metabase
-User=metabase
-Type=simple
-StandardOutput=/var/log/metabase.log
-StandardError=/var/log/metabase.log
-SyslogIdentifier=metabase
-SuccessExitStatus=143
-TimeoutStopSec=120
-Restart=always
+  [Service]
+  WorkingDirectory=/home/metabase/
+  ExecStart=/usr/bin/java --add-opens java.base/java.nio=ALL-UNNAMED -jar /home/metabase/metabase.jar
+  EnvironmentFile=/etc/default/metabase
+  User=metabase
+  Type=simple
+  SuccessExitStatus=143
+  TimeoutStopSec=120
+  Restart=always
 
-[Install]
-WantedBy=multi-user.target
+  [Install]
+  WantedBy=multi-user.target
 EOF
 
-echo "Setting up PostgreSQL"
-apt-get install -y postgresql
-MB_DB_DBNAME=metabase
-MB_DB_USER=metabase
-MB_DB_PASS=metabase
-sudo -u postgres psql -c "CREATE ROLE $MB_DB_USER WITH LOGIN PASSWORD '$MB_DB_PASS';"
-sudo -u postgres psql -c "CREATE DATABASE $MB_DB_DBNAME WITH OWNER $MB_DB_USER"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $MB_DB_DBNAME TO $MB_DB_USER"
-echo "Set up PostgreSQL"
+  msg_info "Setting up PostgreSQL"
+  apt-get install -y postgresql
+  MB_DB_DBNAME=metabase
+  MB_DB_USER=metabase
+  MB_DB_PASS=metabase
+  sudo -u postgres psql -c "CREATE ROLE $MB_DB_USER WITH LOGIN PASSWORD '$MB_DB_PASS';"
+  sudo -u postgres psql -c "CREATE DATABASE $MB_DB_DBNAME WITH OWNER $MB_DB_USER"
+  sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $MB_DB_DBNAME TO $MB_DB_USER"
+  msg_ok "Set up PostgreSQL"
 
 cat <<EOF > /etc/default/metabase
-MB_DB_TYPE=postgres
-MB_DB_DBNAME=$MB_DB_DBNAME
-MB_DB_PORT=5432
-MB_DB_USER=$MB_DB_USER
-MB_DB_PASS=$MB_DB_PASS
-MB_DB_HOST=localhost
-MB_EMOJI_IN_LOGS=false
+  MB_DB_TYPE=postgres
+  MB_DB_DBNAME=$MB_DB_DBNAME
+  MB_DB_PORT=5432
+  MB_DB_USER=$MB_DB_USER
+  MB_DB_PASS=$MB_DB_PASS
+  MB_DB_HOST=localhost
+  MB_EMOJI_IN_LOGS=false
 EOF
 
-echo "Starting Services"
-sudo systemctl daemon-reload && sudo systemctl start metabase.service
-echo "Started Services"
+  msg_info "Starting Services"
+  sudo systemctl daemon-reload && sudo systemctl start metabase.service
+  msg_ok "Started Services"
 
-echo "Cleaning up"
-apt-get -y autoremove
-apt-get -y autoclean
-echo "Cleaned"
+  msg_info "Cleaning up"
+  apt-get -y autoremove
+  apt-get -y autoclean
+  msg_ok "Cleaned"
+}
+
+function update_script() {
+  check_container_storage
+  check_container_resources
+  if [[ ! -d /home/metabase/ ]]; then msg_error "No ${APP} Installation Found!"; exit; fi
+  msg_info "Updating ${APP}"
+  msg_info "Stopping ${APP}"
+  systemctl stop metabase
+  msg_ok "Stopped ${APP}"
+
+  rm /home/metabase/metabase.jar
+  wget -O https://downloads.metabase.com/latest/metabase.jar -O /home/metabase/metabase.jar
+  exit
+}
+
+start
+build_container
+description
 
 msg_ok "Completed Successfully!\n"
 echo -e "${APP} should be reachable by going to the following URL.
