@@ -32,7 +32,7 @@ cat <<"EOF"
                                                                                                     
 EOF
 }
-
+header_info
 echo -e "Loading..."
 APP="Metabase"
 var_disk="2"
@@ -69,6 +69,7 @@ function default_settings() {
 }
 
 function update_script() {
+  header_info
   check_container_storage
   check_container_resources
   if [[ ! -d /home/metabase/ ]]; then 
